@@ -14,7 +14,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the Docker container
-WORKDIR /usr/src/
+WORKDIR /src/
 
 # Copy package.json and package-lock.json files
 COPY package*.json ./
