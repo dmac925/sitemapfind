@@ -2,6 +2,8 @@ const Apify = require('apify');
 
 const possibleXmlUrls = require('./consts');
 const { log } = Apify.utils;
+const successfulUrls = new Set();
+
 
 Apify.main(async () => {
     let { url, proxy } = await Apify.getInput();
@@ -12,7 +14,10 @@ Apify.main(async () => {
     // Open a request queue and add a start URL to it
     const requestQueue = await Apify.openRequestQueue();
     for (const item of possibleXmlUrls) {
-        await requestQueue.addRequest({ url: `${url}${item}` });
+        await requestQueue.addRequest({
+            url: `${url}${item}`,
+            userData: { baseUrl: url }, // Add this line
+        });
     }
 
     const crawler = new Apify.PuppeteerCrawler({
@@ -30,13 +35,28 @@ Apify.main(async () => {
         },
         // This function is called for every page the crawler visits
         handlePageFunction: async ({ request, page, response, session }) => {
+            const baseUrl = request.userData.baseUrl; // Assuming you have stored the base URL in userData
             const responseStatus = response.status();
+        
             if(responseStatus === 403){
                 session.retire();
                 request.retryCount--;
                 await Apify.utils.sleep(5000);
                 throw new Error('Session blocked, retiring.');
             }
+        
+            // Check if the URL already has a successful response
+            if (successfulUrls.has(baseUrl)) {
+                log.info(`Skipping ${request.url} as a successful response is already found for ${baseUrl}`);
+                return;
+            }
+        
+            // Handle successful response
+            if (responseStatus === 200) {
+                successfulUrls.add(baseUrl);
+                // existing code to handle successful response
+            }
+           
             const htmlRaw = await page.evaluate(() => {
                 return document.querySelector('body').innerText.trim();
             });
