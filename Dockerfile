@@ -1,22 +1,25 @@
-# Dockerfile contains instructions how to build a Docker image that will contain
-# all the code and configuration needed to run your actor. For a full
-# Dockerfile reference, see https://docs.docker.com/engine/reference/builder/
+# Use a Node.js version compatible with your dependencies
+# This example uses the official Node.js 16 image with Debian (buster-slim)
+# You can choose a different image if you have specific requirements
+FROM node:16-buster-slim
 
-# First, specify the base Docker image. Apify provides the following base images
-# for your convenience:
-#  apify/actor-node-basic (Node.js 10 on Alpine Linux, small and fast image)
-#  apify/actor-node-chrome (Node.js 10 + Chrome on Debian)
-#  apify/actor-node-chrome-xvfb (Node.js 10 + Chrome + Xvfb on Debian)
-# For more information, see https://apify.com/docs/actor#base-images
-# Note that you can use any other image from Docker Hub.
-FROM apify/actor-node-chrome
+# Optionally, install Chrome if your project requires it
+# This step is necessary if you're using Puppeteer
+RUN apt-get update \
+    && apt-get install -y wget gnupg \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
-# Second, copy just package.json and package-lock.json since they are the only files
-# that affect NPM install in the next step
+# Set the working directory in the Docker container
+WORKDIR /usr/src/app
+
+# Copy package.json and package-lock.json files
 COPY package*.json ./
 
-# Install NPM packages, skip optional and development dependencies to keep the
-# image small. Avoid logging too much and print the dependency tree for debugging
+# Install NPM packages, skip optional and development dependencies
 RUN npm --quiet set progress=false \
  && npm install --only=prod --no-optional \
  && echo "Installed NPM packages:" \
@@ -26,10 +29,8 @@ RUN npm --quiet set progress=false \
  && echo "NPM version:" \
  && npm --version
 
-# Next, copy the remaining files and directories with the source code.
-# Since we do this after NPM install, quick build will be really fast
-# for simple source file changes.
+# Copy the remaining files and directories with the source code
 COPY . ./
 
 # Specify how to run the source code
-CMD npm start
+CMD ["npm", "start"]
